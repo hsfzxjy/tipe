@@ -4,7 +4,8 @@ import (
 	"errors"
 	"math"
 	"testing"
-	"tipe"
+
+	"github.com/hsfzxjy/tipe"
 
 	"github.com/stretchr/testify/assert"
 )

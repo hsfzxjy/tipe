@@ -1,4 +1,4 @@
-module tipe
+module github.com/hsfzxjy/tipe
 
 go 1.21.3
 
