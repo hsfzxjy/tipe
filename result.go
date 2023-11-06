@@ -119,11 +119,16 @@ func (r Result[T]) String() string {
 	}
 }
 
+//go:nosplit
+func noescape(p unsafe.Pointer) unsafe.Pointer {
+	x := uintptr(p)
+	return unsafe.Pointer(x ^ 0)
+}
+
 func Ok[T any](value T) Result[T] {
-	var zero T
-	var anyZero = any(zero)
 	var kind reflect.Kind
-	if (*iface)(unsafe.Pointer(&anyZero)).typ == 0 {
+	var zero T
+	if any(zero) == nil {
 		kind = reflect.Interface
 	} else {
 		kind = reflect.TypeOf(zero).Kind()
@@ -131,11 +136,11 @@ func Ok[T any](value T) Result[T] {
 	switch kind {
 	case reflect.Ptr, reflect.UnsafePointer, reflect.Chan, reflect.Func, reflect.Map:
 		return Result[T]{
-			data:   *(*unsafe.Pointer)(unsafe.Pointer(&value)),
+			data:   *(*unsafe.Pointer)(noescape(unsafe.Pointer(&value))),
 			field1: uintptr(kPtrLike),
 		}
 	case reflect.Interface:
-		iface := *(*iface)(unsafe.Pointer(&value))
+		iface := *(*iface)(noescape(unsafe.Pointer(&value)))
 		return Result[T]{
 			data:   iface.data,
 			field1: uintptr(kIface),
@@ -148,22 +153,24 @@ func Ok[T any](value T) Result[T] {
 		*(*T)(unsafe.Pointer(&r.field1)) = value
 		return r
 	case reflect.String:
-		str := *(*string)(unsafe.Pointer(&value))
+		str := *(*string)(noescape(unsafe.Pointer(&value)))
 		return Result[T]{
 			data:   unsafe.Pointer(unsafe.StringData(str)),
 			field1: uintptr(kString),
 			field2: uintptr(len(str)),
 		}
 	case reflect.Slice:
-		slice := *(*[]byte)(unsafe.Pointer(&value))
+		slice := *(*[]byte)(noescape(unsafe.Pointer(&value)))
 		return Result[T]{
 			data:   unsafe.Pointer(unsafe.SliceData(slice)),
 			field1: uintptr(len(slice)),
 			field2: uintptr(cap(slice)) | sliceFlag,
 		}
 	default:
+		escaped := new(T)
+		*escaped = value
 		return Result[T]{
-			data:   unsafe.Pointer(&value),
+			data:   unsafe.Pointer(escaped),
 			field1: uintptr(kAlloc),
 		}
 	}
@@ -174,7 +181,7 @@ func Err[T any](err error) Result[T] {
 		var zero T
 		return Ok[T](zero)
 	}
-	var internal = *(*iface)(unsafe.Pointer(&err))
+	var internal = *(*iface)(noescape(unsafe.Pointer(&err)))
 	return Result[T]{
 		data:   internal.data,
 		field1: internal.typ,
