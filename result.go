@@ -161,7 +161,7 @@ func (r Result[T]) FillErr(err error) Result[T] {
 
 // FillTuple returns a new Result[T] that contains the given value or error.
 func (r Result[T]) FillTuple(v T, err error) Result[T] {
-	return MakeResult(v, err)
+	return MakeR(v, err)
 }
 
 // Zero returns a new Result[T] that contains the zero value of T.
@@ -262,10 +262,26 @@ func Err[T any](err error) Result[T] {
 	}
 }
 
-// MakeResult returns a Result[T] that contains the given value or error.
-func MakeResult[T any](value T, err error) Result[T] {
+// MakeR returns a Result[T] that contains the given value or error.
+func MakeR[T any](value T, err error) Result[T] {
 	if err == nil {
 		return Ok[T](value)
 	}
 	return Err[T](err)
+}
+
+func MapR[T, U any](r Result[T], f func(T) U) Result[U] {
+	if r.IsOk() {
+		return Ok(f(r.Unwrap()))
+	} else {
+		return Err[U](r.UnwrapErr())
+	}
+}
+
+func BindR[T, U any](r Result[T], f func(T) Result[U]) Result[U] {
+	if r.IsOk() {
+		return f(r.Unwrap())
+	} else {
+		return Err[U](r.UnwrapErr())
+	}
 }
